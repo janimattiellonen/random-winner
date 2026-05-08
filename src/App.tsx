@@ -7,7 +7,9 @@ import {
 import './App.css';
 
 function pickRandom<T>(items: readonly T[]): T | null {
-  if (items.length === 0) return null;
+  if (items.length === 0) {
+    return null;
+  }
   const index = Math.floor(Math.random() * items.length);
   return items[index] ?? null;
 }
@@ -26,7 +28,9 @@ export default function App() {
   const canFetch = url.trim() !== '' && !loading;
   const canDraw = participants.length > 0;
   const removed = useMemo(() => {
-    if (!competition) return 0;
+    if (!competition) {
+      return 0;
+    }
     return competition.participants.length - participants.length;
   }, [competition, participants.length]);
 
@@ -71,10 +75,14 @@ export default function App() {
   }
 
   function handleRemoveWinner() {
-    if (!winner) return;
+    if (!winner) {
+      return;
+    }
     setParticipants((prev) => {
       const idx = prev.indexOf(winner);
-      if (idx === -1) return prev;
+      if (idx === -1) {
+        return prev;
+      }
       const next = prev.slice();
       next.splice(idx, 1);
       return next;
@@ -83,7 +91,9 @@ export default function App() {
   }
 
   function handleReset() {
-    if (!competition) return;
+    if (!competition) {
+      return;
+    }
     setParticipants(competition.participants);
     setWinner(null);
   }
