@@ -3,6 +3,7 @@ export interface MetrixResult {
   ScorecardID: string;
   Name: string;
   ClassName: string;
+  Diff?: string;
 }
 
 export interface MetrixCompetition {

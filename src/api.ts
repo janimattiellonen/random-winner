@@ -57,9 +57,24 @@ export async function fetchParticipants(
     throw new Error('Unexpected API response: missing Competition.Results');
   }
 
-  const participants = data.Competition.Results.map((r) => r.Name)
-    .map((name) => name?.trim())
-    .filter((name): name is string => Boolean(name));
+  const rows = data.Competition.Results.map((r) => ({
+    name: r.Name?.trim() ?? '',
+    className: r.ClassName?.trim() ?? '',
+    diff: r.Diff?.trim() ?? '',
+  })).filter((row) => row.name !== '');
+
+  const nameCounts = new Map<string, number>();
+  for (const row of rows) {
+    nameCounts.set(row.name, (nameCounts.get(row.name) ?? 0) + 1);
+  }
+
+  const participants = rows.map((row) => {
+    if ((nameCounts.get(row.name) ?? 0) <= 1) return row.name;
+    const parts: string[] = [];
+    if (row.diff !== '') parts.push(row.diff);
+    if (row.className !== '') parts.push(`"${row.className}"`);
+    return parts.length > 0 ? `${row.name} (${parts.join(', ')})` : row.name;
+  });
 
   return {
     competitionName: data.Competition.Name ?? '',
