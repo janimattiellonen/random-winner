@@ -1,4 +1,4 @@
-import type { MetrixApiResponse } from './types';
+import type { MetrixApiResponse, MetrixResult } from './types';
 
 const METRIX_HOST = 'discgolfmetrix.com';
 
@@ -52,9 +52,9 @@ export interface FetchedCompetition {
   participants: string[];
 }
 
-export async function fetchParticipants(
+async function fetchCompetition(
   competitionId: string,
-): Promise<FetchedCompetition> {
+): Promise<MetrixApiResponse> {
   const apiUrl = `https://${METRIX_HOST}/api.php?content=result&id=${encodeURIComponent(
     competitionId,
   )}`;
@@ -72,11 +72,55 @@ export async function fetchParticipants(
     throw new Error('Unexpected API response: missing Competition.Results');
   }
 
-  const rows = data.Competition.Results.map((r) => ({
-    name: r.Name?.trim() ?? '',
-    className: r.ClassName?.trim() ?? '',
-    diff: formatDiff(r.Diff),
-  })).filter((row) => row.name !== '');
+  return data;
+}
+
+export async function fetchParticipants(
+  competitionId: string,
+): Promise<FetchedCompetition> {
+  const parent = await fetchCompetition(competitionId);
+
+  let rawResults: MetrixResult[];
+  if (parent.Competition.Results.length > 0) {
+    rawResults = parent.Competition.Results;
+  } else if (
+    Array.isArray(parent.Competition.SubCompetitions) &&
+    parent.Competition.SubCompetitions.length > 0
+  ) {
+    rawResults = parent.Competition.SubCompetitions.flatMap(
+      (sub) => sub.Results ?? [],
+    );
+  } else if (
+    Array.isArray(parent.Competition.Events) &&
+    parent.Competition.Events.length > 0
+  ) {
+    const subResponses = await Promise.all(
+      parent.Competition.Events.map((event) => fetchCompetition(event.ID)),
+    );
+    rawResults = subResponses.flatMap((sub) => sub.Competition.Results);
+  } else {
+    rawResults = [];
+  }
+
+  const seenUserIds = new Set<string>();
+  const results: MetrixResult[] = [];
+  for (const r of rawResults) {
+    if (r.UserID && seenUserIds.has(r.UserID)) {
+      continue;
+    }
+    if (r.UserID) {
+      seenUserIds.add(r.UserID);
+    }
+    results.push(r);
+  }
+
+  const rows = results
+    .map((r) => ({
+      name: r.Name?.trim() ?? '',
+      className: r.ClassName?.trim() ?? '',
+      diff: formatDiff(r.Diff),
+    }))
+    .filter((row) => row.name !== '');
 
   const nameCounts = new Map<string, number>();
   for (const row of rows) {
@@ -98,7 +142,7 @@ export async function fetchParticipants(
   });
 
   return {
-    competitionName: data.Competition.Name ?? '',
+    competitionName: parent.Competition.Name ?? '',
     participants,
   };
 }
