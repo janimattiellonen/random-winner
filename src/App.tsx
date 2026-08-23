@@ -6,6 +6,16 @@ import {
 } from './api';
 import './App.css';
 
+function sourceList(
+  competition: FetchedCompetition,
+  drawIndividuals: boolean,
+): string[] {
+  if (drawIndividuals && competition.isDoubles) {
+    return competition.individualParticipants;
+  }
+  return competition.participants;
+}
+
 function pickRandom<T>(items: readonly T[]): T | null {
   if (items.length === 0) {
     return null;
@@ -24,6 +34,7 @@ export default function App() {
   );
   const [participants, setParticipants] = useState<string[]>([]);
   const [winner, setWinner] = useState<string | null>(null);
+  const [drawIndividuals, setDrawIndividuals] = useState(false);
 
   const canFetch = url.trim() !== '' && !loading;
   const canDraw = participants.length > 0;
@@ -31,8 +42,10 @@ export default function App() {
     if (!competition) {
       return 0;
     }
-    return competition.participants.length - participants.length;
-  }, [competition, participants.length]);
+    return (
+      sourceList(competition, drawIndividuals).length - participants.length
+    );
+  }, [competition, drawIndividuals, participants.length]);
 
   async function handleFetch(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -57,7 +70,7 @@ export default function App() {
         return;
       }
       setCompetition(fetched);
-      setParticipants(fetched.participants);
+      setParticipants(sourceList(fetched, drawIndividuals));
     } catch (err) {
       const message =
         err instanceof Error ? err.message : 'Unknown error fetching data';
@@ -94,8 +107,16 @@ export default function App() {
     if (!competition) {
       return;
     }
-    setParticipants(competition.participants);
+    setParticipants(sourceList(competition, drawIndividuals));
     setWinner(null);
+  }
+
+  function handleToggleIndividuals(checked: boolean) {
+    setDrawIndividuals(checked);
+    setWinner(null);
+    if (competition) {
+      setParticipants(sourceList(competition, checked));
+    }
   }
 
   return (
@@ -138,6 +159,16 @@ export default function App() {
                 {participants.length === 1 ? '' : 's'}
                 {removed > 0 ? ` (${removed} removed)` : ''}
               </p>
+              {competition.isDoubles && (
+                <label className="doubles-toggle">
+                  <input
+                    type="checkbox"
+                    checked={drawIndividuals}
+                    onChange={(e) => handleToggleIndividuals(e.target.checked)}
+                  />
+                  Draw a single player instead of a pair
+                </label>
+              )}
             </div>
             <div className="actions">
               <button

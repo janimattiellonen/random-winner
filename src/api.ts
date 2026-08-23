@@ -49,7 +49,37 @@ function formatDiff(value: string | number | null | undefined): string {
 
 export interface FetchedCompetition {
   competitionName: string;
+  /** Participants as they appear in the results, i.e. teams for doubles. */
   participants: string[];
+  /**
+   * For doubles competitions: the individual players behind the teams,
+   * deduplicated by name. Empty when the competition is not doubles.
+   */
+  individualParticipants: string[];
+  isDoubles: boolean;
+}
+
+function splitTeamName(name: string): string[] {
+  return name
+    .split(',')
+    .map((part) => part.trim())
+    .filter((part) => part !== '');
+}
+
+function collectIndividuals(names: readonly string[]): string[] {
+  const seen = new Set<string>();
+  const players: string[] = [];
+  for (const name of names) {
+    for (const player of splitTeamName(name)) {
+      const key = player.toLocaleLowerCase();
+      if (seen.has(key)) {
+        continue;
+      }
+      seen.add(key);
+      players.push(player);
+    }
+  }
+  return players;
 }
 
 async function fetchCompetition(
@@ -141,8 +171,15 @@ export async function fetchParticipants(
     return parts.length > 0 ? `${row.name} (${parts.join(', ')})` : row.name;
   });
 
+  const teamRowCount = rows.filter((row) => row.name.includes(',')).length;
+  const isDoubles = rows.length > 0 && teamRowCount * 2 >= rows.length;
+
   return {
     competitionName: parent.Competition.Name ?? '',
     participants,
+    individualParticipants: isDoubles
+      ? collectIndividuals(rows.map((row) => row.name))
+      : [],
+    isDoubles,
   };
 }

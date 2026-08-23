@@ -19,3 +19,68 @@ Initially the competition system is always Disc Golf Metrix. The url looks like
 Disc Golf Metrix provides an API that allows for fetching results programmatically.
 
 Example API url: https://discgolfmetrix.com/api.php?content=result&id=3580479 
+
+In the competition mentioned above, there are two groups: "Kokeneemmat" and "Aloittelijat". 
+
+The competiton results can be obtained in the "Results" array from the API response.
+
+Example output (single item in "Results"):
+
+UserID: "164033"
+ScorecardID: "14307500"
+Name: "Visa Korjamo" (player name)
+ClassName: "Kokeneemmat"
+
+...
+...
+...
+
+UserID: "221784"
+ScorecardID: "14405754"
+Name: "Noel Karlsson" (player name)
+ClassName: "Aloittelijat"
+
+...
+...
+
+
+At this moment, we only need the Name attributes:
+
+[
+    ...
+    "Visa Korjamo",
+    "Noel Karlsson",
+    ...
+]
+
+Use this array of names to randomly select a winner.
+
+
+## Project path
+
+/Users/janimattiellonen/Documents/Development/Random winner/Random winner
+
+
+## Tech stack
+- React 19
+- Typescript
+- lint
+- prettier
+- typecheck
+- Vite.js
+- user port 5112
+- add .nvmrc with proper node version
+
+
+## Minor fixes
+- only allow urls, where domain is discgolfmetrix.com
+- if there are multiple player with exact same name, add respective player's score and group name in parenthese after the name. for example: John Smith (-5, "Kokeneemmat"). Score can be found in "Diff".
+
+## Doubles
+
+Currently, if the competition is a doubles competition, a random pair is drawn.
+
+I want to be able to optionally choose, whether to draw a random single player from a set of players in a
+doubles competition.
+
+For example: here is a doubles competition in Metrix: https://discgolfmetrix.com/3757619
