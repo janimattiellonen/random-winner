@@ -102,6 +102,7 @@ function collectIndividuals(names: readonly string[]): string[] {
 
 async function fetchCompetition(
   competitionId: string,
+  notFoundMessage: string,
 ): Promise<MetrixApiResponse> {
   const apiUrl = `https://${METRIX_HOST}/api.php?content=result&id=${encodeURIComponent(
     competitionId,
@@ -117,9 +118,7 @@ async function fetchCompetition(
   const data = (await response.json()) as MetrixApiResponse;
 
   if (!data.Competition) {
-    throw new Error(
-      `Competition ${competitionId} was not found on Disc Golf Metrix. Check the link and try again.`,
-    );
+    throw new Error(notFoundMessage);
   }
   if (!Array.isArray(data.Competition.Results)) {
     throw new Error(
@@ -133,7 +132,10 @@ async function fetchCompetition(
 export async function fetchParticipants(
   competitionId: string,
 ): Promise<FetchedCompetition> {
-  const parent = await fetchCompetition(competitionId);
+  const parent = await fetchCompetition(
+    competitionId,
+    `Competition ${competitionId} was not found on Disc Golf Metrix. Check the link and try again.`,
+  );
 
   let rawResults: MetrixResult[];
   if (parent.Competition.Results.length > 0) {
@@ -150,7 +152,12 @@ export async function fetchParticipants(
     parent.Competition.Events.length > 0
   ) {
     const subResponses = await Promise.all(
-      parent.Competition.Events.map((event) => fetchCompetition(event.ID)),
+      parent.Competition.Events.map((event) =>
+        fetchCompetition(
+          event.ID,
+          'Disc Golf Metrix could not return all rounds of this competition. Please try again later.',
+        ),
+      ),
     );
     rawResults = subResponses.flatMap((sub) => sub.Competition.Results);
   } else {
