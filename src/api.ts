@@ -34,6 +34,12 @@ export function extractCompetitionId(input: string): string | null {
   }
 }
 
+/** Metrix returns some text HTML-encoded, e.g. "&rarr;" instead of "→". */
+function decodeHtmlEntities(text: string): string {
+  const doc = new DOMParser().parseFromString(text, 'text/html');
+  return doc.documentElement.textContent ?? text;
+}
+
 function formatDiff(value: string | number | null | undefined): string {
   if (value === null || value === undefined) {
     return '';
@@ -146,8 +152,8 @@ export async function fetchParticipants(
 
   const rows = results
     .map((r) => ({
-      name: r.Name?.trim() ?? '',
-      className: r.ClassName?.trim() ?? '',
+      name: decodeHtmlEntities(r.Name ?? '').trim(),
+      className: decodeHtmlEntities(r.ClassName ?? '').trim(),
       diff: formatDiff(r.Diff),
     }))
     .filter((row) => row.name !== '');
@@ -175,7 +181,7 @@ export async function fetchParticipants(
   const isDoubles = rows.length > 0 && teamRowCount * 2 >= rows.length;
 
   return {
-    competitionName: parent.Competition.Name ?? '',
+    competitionName: decodeHtmlEntities(parent.Competition.Name ?? ''),
     participants,
     individualParticipants: isDoubles
       ? collectIndividuals(rows.map((row) => row.name))
