@@ -34,10 +34,18 @@ export function extractCompetitionId(input: string): string | null {
   }
 }
 
-/** Metrix returns some text HTML-encoded, e.g. "&rarr;" instead of "→". */
+/**
+ * Metrix returns some text HTML-encoded, e.g. "&rarr;" instead of "→".
+ * A textarea's content is parsed as RCDATA, so entities are decoded while
+ * anything that looks like a tag is kept as literal text.
+ */
 function decodeHtmlEntities(text: string): string {
-  const doc = new DOMParser().parseFromString(text, 'text/html');
-  return doc.documentElement.textContent ?? text;
+  if (!text.includes('&')) {
+    return text;
+  }
+  const textarea = document.createElement('textarea');
+  textarea.innerHTML = text;
+  return textarea.value;
 }
 
 function formatDiff(value: string | number | null | undefined): string {
