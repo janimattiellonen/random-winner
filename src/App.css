@@ -213,6 +213,33 @@ button.primary:hover:not(:disabled) {
   }
 }
 
+.previous-winners {
+  margin: 0 0 1rem;
+}
+
+.previous-winners h3 {
+  margin: 0 0 0.4rem;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #6b6b73;
+}
+
+.previous-winners ol {
+  margin: 0;
+  padding-left: 1.5rem;
+}
+
+.previous-winners li {
+  padding: 0.15rem 0;
+}
+
+@media (prefers-color-scheme: dark) {
+  .previous-winners h3 {
+    color: #9999a3;
+  }
+}
+
 .participant-list {
   list-style: none;
   padding: 0;

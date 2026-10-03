@@ -34,6 +34,24 @@ export function extractCompetitionId(input: string): string | null {
   }
 }
 
+export function competitionUrl(competitionId: string): string {
+  return `https://${METRIX_HOST}/${competitionId}`;
+}
+
+/**
+ * Metrix returns some text HTML-encoded, e.g. "&rarr;" instead of "→".
+ * A textarea's content is parsed as RCDATA, so entities are decoded while
+ * anything that looks like a tag is kept as literal text.
+ */
+function decodeHtmlEntities(text: string): string {
+  if (!text.includes('&')) {
+    return text;
+  }
+  const textarea = document.createElement('textarea');
+  textarea.innerHTML = text;
+  return textarea.value;
+}
+
 function formatDiff(value: string | number | null | undefined): string {
   if (value === null || value === undefined) {
     return '';
@@ -146,8 +164,8 @@ export async function fetchParticipants(
 
   const rows = results
     .map((r) => ({
-      name: r.Name?.trim() ?? '',
-      className: r.ClassName?.trim() ?? '',
+      name: decodeHtmlEntities(r.Name ?? '').trim(),
+      className: decodeHtmlEntities(r.ClassName ?? '').trim(),
       diff: formatDiff(r.Diff),
     }))
     .filter((row) => row.name !== '');
@@ -175,7 +193,7 @@ export async function fetchParticipants(
   const isDoubles = rows.length > 0 && teamRowCount * 2 >= rows.length;
 
   return {
-    competitionName: parent.Competition.Name ?? '',
+    competitionName: decodeHtmlEntities(parent.Competition.Name ?? ''),
     participants,
     individualParticipants: isDoubles
       ? collectIndividuals(rows.map((row) => row.name))

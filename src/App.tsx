@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 import {
+  competitionUrl,
   extractCompetitionId,
   fetchParticipants,
   type FetchedCompetition,
@@ -24,6 +25,11 @@ function pickRandom<T>(items: readonly T[]): T | null {
   return items[index] ?? null;
 }
 
+function competitionIdFromPath(pathname: string): string | null {
+  const match = /^\/(\d+)\/?$/.exec(pathname);
+  return match ? (match[1] ?? null) : null;
+}
+
 export default function App() {
   const [url, setUrl] = useState('');
   const [loading, setLoading] = useState(false);
@@ -34,7 +40,11 @@ export default function App() {
   );
   const [participants, setParticipants] = useState<string[]>([]);
   const [winner, setWinner] = useState<string | null>(null);
+  const [previousWinners, setPreviousWinners] = useState<string[]>([]);
   const [drawIndividuals, setDrawIndividuals] = useState(false);
+  // Incremented on every load and on navigating away from a competition, so a
+  // response that arrives after a newer request (or a reset) is discarded.
+  const latestLoadId = useRef(0);
 
   const canFetch = url.trim() !== '' && !loading;
   const canDraw = participants.length > 0;
@@ -47,40 +57,93 @@ export default function App() {
     );
   }, [competition, drawIndividuals, participants.length]);
 
-  async function handleFetch(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setError(null);
+  function clearDraw() {
     setWinner(null);
+    setPreviousWinners([]);
+  }
+
+  function clearCompetition() {
+    setCompetition(null);
+    setParticipants([]);
+    clearDraw();
+  }
+
+  async function loadCompetition(competitionId: string) {
+    latestLoadId.current += 1;
+    const loadId = latestLoadId.current;
+    const isStale = () => loadId !== latestLoadId.current;
+
+    setError(null);
+    clearDraw();
+    setLoading(true);
+    try {
+      const fetched = await fetchParticipants(competitionId);
+      if (isStale()) {
+        return;
+      }
+      if (fetched.participants.length === 0) {
+        setError('No participants found for this competition.');
+        clearCompetition();
+        return;
+      }
+      setCompetition(fetched);
+      setParticipants(sourceList(fetched, drawIndividuals));
+    } catch (err) {
+      if (isStale()) {
+        return;
+      }
+      const message =
+        err instanceof Error ? err.message : 'Unknown error fetching data';
+      setError(message);
+      clearCompetition();
+    } finally {
+      if (!isStale()) {
+        setLoading(false);
+      }
+    }
+  }
+
+  function handleFetch(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
 
     const competitionId = extractCompetitionId(url);
     if (!competitionId) {
       setError(
         'Could not parse a competition id. Use a Disc Golf Metrix URL like https://discgolfmetrix.com/3580479 or just the numeric id.',
       );
+      setWinner(null);
       return;
     }
 
-    setLoading(true);
-    try {
-      const fetched = await fetchParticipants(competitionId);
-      if (fetched.participants.length === 0) {
-        setError('No participants found for this competition.');
-        setCompetition(null);
-        setParticipants([]);
-        return;
-      }
-      setCompetition(fetched);
-      setParticipants(sourceList(fetched, drawIndividuals));
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : 'Unknown error fetching data';
-      setError(message);
-      setCompetition(null);
-      setParticipants([]);
-    } finally {
-      setLoading(false);
+    const path = `/${competitionId}`;
+    if (window.location.pathname !== path) {
+      window.history.pushState(null, '', path);
     }
+    void loadCompetition(competitionId);
   }
+
+  const handleLocationChange = useEffectEvent(() => {
+    const competitionId = competitionIdFromPath(window.location.pathname);
+    if (competitionId) {
+      setUrl(competitionUrl(competitionId));
+      void loadCompetition(competitionId);
+    } else {
+      latestLoadId.current += 1;
+      setLoading(false);
+      setUrl('');
+      setError(null);
+      clearCompetition();
+    }
+  });
+
+  useEffect(() => {
+    handleLocationChange();
+    window.addEventListener('popstate', handleLocationChange);
+    return () => window.removeEventListener('popstate', handleLocationChange);
+    // Effect events must not be listed as dependencies; this version of
+    // eslint-plugin-react-hooks does not know about useEffectEvent yet.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function handleDraw() {
     const picked = pickRandom(participants);
@@ -100,6 +163,7 @@ export default function App() {
       next.splice(idx, 1);
       return next;
     });
+    setPreviousWinners((prev) => [...prev, winner]);
     setWinner(null);
   }
 
@@ -108,12 +172,12 @@ export default function App() {
       return;
     }
     setParticipants(sourceList(competition, drawIndividuals));
-    setWinner(null);
+    clearDraw();
   }
 
   function handleToggleIndividuals(checked: boolean) {
     setDrawIndividuals(checked);
-    setWinner(null);
+    clearDraw();
     if (competition) {
       setParticipants(sourceList(competition, checked));
     }
@@ -200,6 +264,17 @@ export default function App() {
               >
                 Remove and draw again
               </button>
+            </div>
+          )}
+
+          {previousWinners.length > 0 && (
+            <div className="previous-winners">
+              <h3>Previous winners</h3>
+              <ol>
+                {previousWinners.map((name, index) => (
+                  <li key={`${name}-${index}`}>{name}</li>
+                ))}
+              </ol>
             </div>
           )}
 
