@@ -34,6 +34,10 @@ export function extractCompetitionId(input: string): string | null {
   }
 }
 
+export function competitionUrl(competitionId: string): string {
+  return `https://${METRIX_HOST}/${competitionId}`;
+}
+
 /**
  * Metrix returns some text HTML-encoded, e.g. "&rarr;" instead of "→".
  * A textarea's content is parsed as RCDATA, so entities are decoded while

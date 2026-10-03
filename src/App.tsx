@@ -1,5 +1,6 @@
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 import {
+  competitionUrl,
   extractCompetitionId,
   fetchParticipants,
   type FetchedCompetition,
@@ -27,10 +28,6 @@ function pickRandom<T>(items: readonly T[]): T | null {
 function competitionIdFromPath(pathname: string): string | null {
   const match = /^\/(\d+)\/?$/.exec(pathname);
   return match ? (match[1] ?? null) : null;
-}
-
-function competitionUrl(competitionId: string): string {
-  return `https://discgolfmetrix.com/${competitionId}`;
 }
 
 export default function App() {
