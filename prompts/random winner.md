@@ -84,3 +84,37 @@ I want to be able to optionally choose, whether to draw a random single player f
 doubles competition.
 
 For example: here is a doubles competition in Metrix: https://discgolfmetrix.com/3757619
+
+
+## Metrix id in the url
+
+To be able to generate a random winner for a Metrix competition I have to paste in the full url 
+in the text field and press enter. If I want someone else to generate a winner for a competition,
+I have to send him the link to the generator AND the link to the competition
+
+It would be better if I could just send the person a link to the generator including the 
+competition id. For example: https://randomwinner.janimattiellonen.fi/3771387
+would equal me giving the person https://randomwinner.janimattiellonen.fi/ and
+https://discgolfmetrix.com/3771387.
+
+If I add a competition url and press fetch, it should "redirect" to the url containing the 
+competition id.
+
+Create a new branch.
+
+
+## Minor random changes
+
+1)
+The title for competition https://discgolfmetrix.com/3771387 is 
+
+"Pääkaupunkiseudun junior cup 2026 → Osakilpailu #8, Kirkkonummi".
+
+It becomes "Pääkaupunkiseudun junior cup 2026 &rarr; Osakilpailu #8, Kirkkonummi" in the web app.
+
+When I draw a winner and press the "Remove and draw again" button, I lose the names of the 
+previous winners. The names of the previous winners could be listed above the list of remaining players.
+
+You can add fixes to these both in the current branch `competition-id-in-url`
+
+

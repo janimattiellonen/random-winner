@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useEffectEvent, useMemo, useState } from 'react';
 import {
   extractCompetitionId,
   fetchParticipants,
@@ -24,6 +24,15 @@ function pickRandom<T>(items: readonly T[]): T | null {
   return items[index] ?? null;
 }
 
+function competitionIdFromPath(pathname: string): string | null {
+  const match = /^\/(\d+)\/?$/.exec(pathname);
+  return match ? (match[1] ?? null) : null;
+}
+
+function competitionUrl(competitionId: string): string {
+  return `https://discgolfmetrix.com/${competitionId}`;
+}
+
 export default function App() {
   const [url, setUrl] = useState('');
   const [loading, setLoading] = useState(false);
@@ -34,6 +43,7 @@ export default function App() {
   );
   const [participants, setParticipants] = useState<string[]>([]);
   const [winner, setWinner] = useState<string | null>(null);
+  const [previousWinners, setPreviousWinners] = useState<string[]>([]);
   const [drawIndividuals, setDrawIndividuals] = useState(false);
 
   const canFetch = url.trim() !== '' && !loading;
@@ -47,19 +57,10 @@ export default function App() {
     );
   }, [competition, drawIndividuals, participants.length]);
 
-  async function handleFetch(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function loadCompetition(competitionId: string) {
     setError(null);
     setWinner(null);
-
-    const competitionId = extractCompetitionId(url);
-    if (!competitionId) {
-      setError(
-        'Could not parse a competition id. Use a Disc Golf Metrix URL like https://discgolfmetrix.com/3580479 or just the numeric id.',
-      );
-      return;
-    }
-
+    setPreviousWinners([]);
     setLoading(true);
     try {
       const fetched = await fetchParticipants(competitionId);
@@ -82,6 +83,49 @@ export default function App() {
     }
   }
 
+  function handleFetch(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const competitionId = extractCompetitionId(url);
+    if (!competitionId) {
+      setError(
+        'Could not parse a competition id. Use a Disc Golf Metrix URL like https://discgolfmetrix.com/3580479 or just the numeric id.',
+      );
+      setWinner(null);
+      return;
+    }
+
+    const path = `/${competitionId}`;
+    if (window.location.pathname !== path) {
+      window.history.pushState(null, '', path);
+    }
+    void loadCompetition(competitionId);
+  }
+
+  const handleLocationChange = useEffectEvent(() => {
+    const competitionId = competitionIdFromPath(window.location.pathname);
+    if (competitionId) {
+      setUrl(competitionUrl(competitionId));
+      void loadCompetition(competitionId);
+    } else {
+      setUrl('');
+      setError(null);
+      setWinner(null);
+      setPreviousWinners([]);
+      setCompetition(null);
+      setParticipants([]);
+    }
+  });
+
+  useEffect(() => {
+    handleLocationChange();
+    window.addEventListener('popstate', handleLocationChange);
+    return () => window.removeEventListener('popstate', handleLocationChange);
+    // Effect events must not be listed as dependencies; this version of
+    // eslint-plugin-react-hooks does not know about useEffectEvent yet.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   function handleDraw() {
     const picked = pickRandom(participants);
     setWinner(picked);
@@ -100,6 +144,7 @@ export default function App() {
       next.splice(idx, 1);
       return next;
     });
+    setPreviousWinners((prev) => [...prev, winner]);
     setWinner(null);
   }
 
@@ -109,11 +154,13 @@ export default function App() {
     }
     setParticipants(sourceList(competition, drawIndividuals));
     setWinner(null);
+    setPreviousWinners([]);
   }
 
   function handleToggleIndividuals(checked: boolean) {
     setDrawIndividuals(checked);
     setWinner(null);
+    setPreviousWinners([]);
     if (competition) {
       setParticipants(sourceList(competition, checked));
     }
@@ -200,6 +247,17 @@ export default function App() {
               >
                 Remove and draw again
               </button>
+            </div>
+          )}
+
+          {previousWinners.length > 0 && (
+            <div className="previous-winners">
+              <h3>Previous winners</h3>
+              <ol>
+                {previousWinners.map((name, index) => (
+                  <li key={`${name}-${index}`}>{name}</li>
+                ))}
+              </ol>
             </div>
           )}
 
