@@ -116,8 +116,15 @@ async function fetchCompetition(
 
   const data = (await response.json()) as MetrixApiResponse;
 
-  if (!data.Competition || !Array.isArray(data.Competition.Results)) {
-    throw new Error('Unexpected API response: missing Competition.Results');
+  if (!data.Competition) {
+    throw new Error(
+      `Competition ${competitionId} was not found on Disc Golf Metrix. Check the link and try again.`,
+    );
+  }
+  if (!Array.isArray(data.Competition.Results)) {
+    throw new Error(
+      'Disc Golf Metrix returned competition data in an unexpected format. Please try again later.',
+    );
   }
 
   return data;
