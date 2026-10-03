@@ -27,5 +27,7 @@ export interface MetrixCompetition {
 }
 
 export interface MetrixApiResponse {
-  Competition: MetrixCompetition;
+  /** Null when the id is unknown or missing; `Errors` then says why. */
+  Competition: MetrixCompetition | null;
+  Errors?: string[];
 }
