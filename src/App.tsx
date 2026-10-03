@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent, useMemo, useState } from 'react';
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 import {
   extractCompetitionId,
   fetchParticipants,
@@ -45,6 +45,9 @@ export default function App() {
   const [winner, setWinner] = useState<string | null>(null);
   const [previousWinners, setPreviousWinners] = useState<string[]>([]);
   const [drawIndividuals, setDrawIndividuals] = useState(false);
+  // Incremented on every load and on navigating away from a competition, so a
+  // response that arrives after a newer request (or a reset) is discarded.
+  const latestLoadId = useRef(0);
 
   const canFetch = url.trim() !== '' && !loading;
   const canDraw = participants.length > 0;
@@ -58,12 +61,19 @@ export default function App() {
   }, [competition, drawIndividuals, participants.length]);
 
   async function loadCompetition(competitionId: string) {
+    latestLoadId.current += 1;
+    const loadId = latestLoadId.current;
+    const isStale = () => loadId !== latestLoadId.current;
+
     setError(null);
     setWinner(null);
     setPreviousWinners([]);
     setLoading(true);
     try {
       const fetched = await fetchParticipants(competitionId);
+      if (isStale()) {
+        return;
+      }
       if (fetched.participants.length === 0) {
         setError('No participants found for this competition.');
         setCompetition(null);
@@ -73,13 +83,18 @@ export default function App() {
       setCompetition(fetched);
       setParticipants(sourceList(fetched, drawIndividuals));
     } catch (err) {
+      if (isStale()) {
+        return;
+      }
       const message =
         err instanceof Error ? err.message : 'Unknown error fetching data';
       setError(message);
       setCompetition(null);
       setParticipants([]);
     } finally {
-      setLoading(false);
+      if (!isStale()) {
+        setLoading(false);
+      }
     }
   }
 
@@ -108,6 +123,8 @@ export default function App() {
       setUrl(competitionUrl(competitionId));
       void loadCompetition(competitionId);
     } else {
+      latestLoadId.current += 1;
+      setLoading(false);
       setUrl('');
       setError(null);
       setWinner(null);
