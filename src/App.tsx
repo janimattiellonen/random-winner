@@ -60,14 +60,24 @@ export default function App() {
     );
   }, [competition, drawIndividuals, participants.length]);
 
+  function clearDraw() {
+    setWinner(null);
+    setPreviousWinners([]);
+  }
+
+  function clearCompetition() {
+    setCompetition(null);
+    setParticipants([]);
+    clearDraw();
+  }
+
   async function loadCompetition(competitionId: string) {
     latestLoadId.current += 1;
     const loadId = latestLoadId.current;
     const isStale = () => loadId !== latestLoadId.current;
 
     setError(null);
-    setWinner(null);
-    setPreviousWinners([]);
+    clearDraw();
     setLoading(true);
     try {
       const fetched = await fetchParticipants(competitionId);
@@ -76,8 +86,7 @@ export default function App() {
       }
       if (fetched.participants.length === 0) {
         setError('No participants found for this competition.');
-        setCompetition(null);
-        setParticipants([]);
+        clearCompetition();
         return;
       }
       setCompetition(fetched);
@@ -89,8 +98,7 @@ export default function App() {
       const message =
         err instanceof Error ? err.message : 'Unknown error fetching data';
       setError(message);
-      setCompetition(null);
-      setParticipants([]);
+      clearCompetition();
     } finally {
       if (!isStale()) {
         setLoading(false);
@@ -127,10 +135,7 @@ export default function App() {
       setLoading(false);
       setUrl('');
       setError(null);
-      setWinner(null);
-      setPreviousWinners([]);
-      setCompetition(null);
-      setParticipants([]);
+      clearCompetition();
     }
   });
 
@@ -170,14 +175,12 @@ export default function App() {
       return;
     }
     setParticipants(sourceList(competition, drawIndividuals));
-    setWinner(null);
-    setPreviousWinners([]);
+    clearDraw();
   }
 
   function handleToggleIndividuals(checked: boolean) {
     setDrawIndividuals(checked);
-    setWinner(null);
-    setPreviousWinners([]);
+    clearDraw();
     if (competition) {
       setParticipants(sourceList(competition, checked));
     }
