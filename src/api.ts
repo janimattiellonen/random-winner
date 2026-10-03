@@ -1,4 +1,8 @@
-import type { MetrixApiResponse, MetrixResult } from './types';
+import type {
+  MetrixApiResponse,
+  MetrixCompetition,
+  MetrixResult,
+} from './types';
 
 const METRIX_HOST = 'discgolfmetrix.com';
 
@@ -102,7 +106,8 @@ function collectIndividuals(names: readonly string[]): string[] {
 
 async function fetchCompetition(
   competitionId: string,
-): Promise<MetrixApiResponse> {
+  notFoundMessage: string,
+): Promise<MetrixCompetition> {
   const apiUrl = `https://${METRIX_HOST}/api.php?content=result&id=${encodeURIComponent(
     competitionId,
   )}`;
@@ -115,37 +120,46 @@ async function fetchCompetition(
   }
 
   const data = (await response.json()) as MetrixApiResponse;
+  const competition = data.Competition;
 
-  if (!data.Competition || !Array.isArray(data.Competition.Results)) {
-    throw new Error('Unexpected API response: missing Competition.Results');
+  if (!competition) {
+    throw new Error(notFoundMessage);
+  }
+  if (!Array.isArray(competition.Results)) {
+    throw new Error(
+      'Disc Golf Metrix returned competition data in an unexpected format. Please try again later.',
+    );
   }
 
-  return data;
+  return competition;
 }
 
 export async function fetchParticipants(
   competitionId: string,
 ): Promise<FetchedCompetition> {
-  const parent = await fetchCompetition(competitionId);
+  const parent = await fetchCompetition(
+    competitionId,
+    `Competition ${competitionId} was not found on Disc Golf Metrix. Check the link and try again.`,
+  );
 
   let rawResults: MetrixResult[];
-  if (parent.Competition.Results.length > 0) {
-    rawResults = parent.Competition.Results;
+  if (parent.Results.length > 0) {
+    rawResults = parent.Results;
   } else if (
-    Array.isArray(parent.Competition.SubCompetitions) &&
-    parent.Competition.SubCompetitions.length > 0
+    Array.isArray(parent.SubCompetitions) &&
+    parent.SubCompetitions.length > 0
   ) {
-    rawResults = parent.Competition.SubCompetitions.flatMap(
-      (sub) => sub.Results ?? [],
+    rawResults = parent.SubCompetitions.flatMap((sub) => sub.Results ?? []);
+  } else if (Array.isArray(parent.Events) && parent.Events.length > 0) {
+    const events = await Promise.all(
+      parent.Events.map((event) =>
+        fetchCompetition(
+          event.ID,
+          'Disc Golf Metrix could not return all rounds of this competition. Please try again later.',
+        ),
+      ),
     );
-  } else if (
-    Array.isArray(parent.Competition.Events) &&
-    parent.Competition.Events.length > 0
-  ) {
-    const subResponses = await Promise.all(
-      parent.Competition.Events.map((event) => fetchCompetition(event.ID)),
-    );
-    rawResults = subResponses.flatMap((sub) => sub.Competition.Results);
+    rawResults = events.flatMap((event) => event.Results);
   } else {
     rawResults = [];
   }
@@ -193,7 +207,7 @@ export async function fetchParticipants(
   const isDoubles = rows.length > 0 && teamRowCount * 2 >= rows.length;
 
   return {
-    competitionName: decodeHtmlEntities(parent.Competition.Name ?? ''),
+    competitionName: decodeHtmlEntities(parent.Name ?? ''),
     participants,
     individualParticipants: isDoubles
       ? collectIndividuals(rows.map((row) => row.name))
